@@ -40,15 +40,15 @@ from torch.utils.tensorboard import SummaryWriter
 time.sleep(4)
 os.environ['ROS_MASTER_URI'] = "http://localhost:{}/".format(11310 + 1)
 rospy.init_node('TurtleBot3_Circuit_Simple-v0'.replace('-', '_') + "_w{}".format(1))
-env = gym.make('TurtleBot3_Circuit_Simple-v0', observation_mode=0, continuous=True, env_stage=4)
+env = gym.make('TurtleBot3_Circuit_Simple-v0', observation_mode=0, continuous=True, env_stage=1)
 time.sleep(4)
 
 observation = env.reset()
 
-if not os.path.exists('logs4'):
-	os.makedirs('logs4')
+if not os.path.exists('logs2'):
+	os.makedirs('logs2')
 	
-writer = SummaryWriter('logs4')
+writer = SummaryWriter('logs2')
 
 
 class ReplayBuffer():
@@ -124,7 +124,8 @@ class LinearDeepQNetwork(nn.Module):
         self.optimizer = optim.Adam(self.parameters(),lr = lr)
         self.loss = nn.MSELoss()
         
-        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
+       # self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
+        self.device = T.device('cpu')
         #send the network to the device
         self.to(self.device)
         
@@ -236,32 +237,38 @@ class ReinforceAgent():
         states = T.tensor(states, dtype= T.float).to(self.model.device) # turn np.array to pytorch tensor
         states_ = T.tensor(states_, dtype= T.float).to(self.model.device)        
         rewards = T.tensor(rewards).to(self.model.device) # tensor([batchsize])
-        terminals = T.tensor(terminals).to(self.model.device)   
-        #actions = T.tensor(actions).to(self.model.device) # dont need to be a tensor
+        terminals = T.tensor(terminals, dtype = T.float).to(self.model.device)   
+
+        
         '''Perform feedforward to compare: estimate value of current state (state) toward the max value of next state(states_)'''             
         #we want the delta between action the agent actually took and max action
         # batch index loop trhough all state
         
         q_prediction = self.model(states)[batch_index, actions] 
+        actions = T.tensor(actions, dtype= T.int64).to(self.model.device) # dont need to be a tensor
         
-        q_s_a = q_prediction.gather(1, actions.unsqueeze(1))
+   #     q_s_a = q_prediction.gather(0, (T.from_numpy(actions)).unsqueeze(1))
+        q_s_a = q_prediction.gather(0, actions)
         q_s_a = q_s_a.squeeze()
-	q_tp1_values = Q(states_).detach()
-	_, a_prime = q_tp1_values.max(1)
-
-	# get Q values from frozen network for next state and chosen action
+        q_tp1_values = self.model(states_).detach()
+        _, a_prime = q_tp1_values.max(1)
+        
+        # get Q values from frozen network for next state and chosen action
 	# Q(s',argmax(Q(s',a', theta_i), theta_i_frozen)) (argmax wrt a')
-	q_target_tp1_values = Q_target(states_).detach()
-	q_target_s_a_prime = q_target_tp1_values.gather(1, a_prime.unsqueeze(1))
-	q_target_s_a_prime = q_target_s_a_prime.squeeze()
+        q_target_tp1_values = self.target_model(states_).detach()
+        q_target_s_a_prime = q_target_tp1_values.gather(1, a_prime.unsqueeze(1))
+        q_target_s_a_prime = q_target_s_a_prime.squeeze()
+        
+	# if current state is end of episode, then there is no next Q value        
+        q_target_s_a_prime = (1 - terminals) * q_target_s_a_prime
+        
+        q_target = rewards + self.discount_factor * q_target_s_a_prime
+        
+      #  error = rewards + self.discount_factor * q_target_s_a_prime - q_s_a      
+     #   print(error)
+        # clip the error and flip 
+        loss = self.model.loss(q_s_a, q_target)
 
-	# if current state is end of episode, then there is no next Q value
-	q_target_s_a_prime = (1 - done_mask) * q_target_s_a_prime 
-
-	error = rewards + gamma * q_target_s_a_prime - q_s_a
-	
-	# clip the error and flip 
-	loss = -1.0 * error.clamp(-1, 1)
 	
 	# backwards pass
 #	optimizer.zero_grad()
