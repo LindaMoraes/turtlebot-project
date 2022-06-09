@@ -244,12 +244,13 @@ class ReinforceAgent():
         #we want the delta between action the agent actually took and max action
         # batch index loop trhough all state
         
-        q_prediction = self.model(states)[batch_index, actions] 
-        actions = T.tensor(actions, dtype= T.int64).to(self.model.device) # dont need to be a tensor
+    #    q_prediction = self.model(states)[batch_index, actions] 
+        q_prediction = self.model(states)
+        actions = T.tensor(actions, dtype= T.int64).to(self.model.device) # dont need to be a tensor   
         
-   #     q_s_a = q_prediction.gather(0, (T.from_numpy(actions)).unsqueeze(1))
-        q_s_a = q_prediction.gather(0, actions)
-        q_s_a = q_s_a.squeeze()
+   #     q_s_a = q_prediction.gather(0, (T.from_numpy(actions)).unsqueeze(1))     
+     #   q_s_a = q_s_a.squeeze()
+        q_s_a = q_prediction.gather(1, actions.unsqueeze(1)).squeeze()
         q_tp1_values = self.model(states_).detach()
         _, a_prime = q_tp1_values.max(1)
         
