@@ -45,10 +45,10 @@ time.sleep(4)
 
 observation = env.reset()
 
-if not os.path.exists('logs2'):
-	os.makedirs('logs2')
+if not os.path.exists('logs'):
+	os.makedirs('logs')
 	
-writer = SummaryWriter('logs2')
+writer = SummaryWriter('logs')
 
 
 class ReplayBuffer():
@@ -342,8 +342,8 @@ if __name__ == '__main__':
 
             if done:
               
-                if e % 10 == 0: #save model after each 10 ep.
-                    T.save(agent.model, 'model.pt')
+                if e % 100 == 0: #save model after each 100 ep.
+                    T.save(agent.model.state_dict(), 'ddqn_st1_model.pth')
                     print ('Saved model at episode', e)                    
                 agent.updateTargetModel()
                 scores.append(score)
