@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-# Authors: Tien Tran, adapted from ROBOTIS 
-# mail: quang.tran@fh-dortmund.de
+# Authors: Linda Moraes, adapted from Tien Tran, who adapted from ROBOTIS 
+# Tien Tran mail: quang.tran@fh-dortmund.de
 
 import rospy
 import os
@@ -13,7 +13,6 @@ import csv
 from tqdm import tqdm
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from std_msgs.msg import Float32MultiArray
-#from src.turtlebot3_dqn.environment_stage_thesis import Env
 
 import gym
 import math
@@ -26,7 +25,7 @@ from gym import spaces
 from gym.utils import seeding
 from std_msgs.msg import Float32MultiArray
 
-EPISODES = 5
+EPISODES = 10
 
 import torch as T
 
@@ -43,12 +42,12 @@ rospy.init_node('TurtleBot3_Circuit_Simple-v0'.replace('-', '_') + "_w{}".format
 env = gym.make('TurtleBot3_Circuit_Simple-v0', observation_mode=0, continuous=True, env_stage=1)
 time.sleep(4)
 
-observation = env.reset()
+observation = env.reset(new_random_goals=True, goal=None)
 
-if not os.path.exists('logs7'):
-	os.makedirs('logs7')
+if not os.path.exists('logs70'):
+	os.makedirs('logs70')
 	
-writer = SummaryWriter('logs7')
+writer = SummaryWriter('logs70')
 
 
 class LinearDeepQNetwork(nn.Module):
@@ -123,12 +122,33 @@ class ReinforceAgent():
             self.epsilon = 0.3
         #    self.global_step = self.load_episode# dummy for bypass the batch sizes
             print ('Loading model ')
-            self.model.load_state_dict(T.load(self.dirPath + '/ddqn_st2_model.pth'))
+            self.model.load_state_dict(T.load(self.dirPath + '/dqn_stL_model.pth'))
             self.model.eval()
             print ("Load model state dict")
             # TODO: Load previos epsilon self.epsilon = 0.99 
         
     
+    def test_goals(self, t, env):
+    	if env == 3:
+    		if t < 2:
+        		return ([0.5, -3.5],[0.5, -3.5])
+    		elif 2 <= t < 4:
+        		return ([3.5, -0.5],[3.5, -0.5])
+    		elif 4 <= t < 6:
+        		return ([3.5, -3.5],[3.5, -3.5])
+    		elif t >= 6:
+        		return ([2.7, -2.0],[2.7, -2.0])
+    	else:
+    		if t < 5:
+        		return ([-1.5, -1.5],[-1.5, -1.5])
+    		elif 5 <= t < 10:
+        		return ([1.5, -1.5],[1.5, -1.5])
+    		elif 10 <= t < 20:
+        		return ([-1.5, 1.5],[-1.5, 1.5])
+    		elif t >= 20:
+        		return ([1.5, 1.5],[1.5, 1.5])
+
+        	
     def choose_action (self, observation):
         if np.random.random() < self.epsilon:
             action = np.random.choice(self.action_space)
@@ -139,6 +159,7 @@ class ReinforceAgent():
             action =T.argmax(actions).item() # Tien: item will take the tensor back to env: interger 
             #print ("Action chose:",  action)
         return action
+        
              
 
 if __name__ == '__main__':
@@ -150,23 +171,25 @@ if __name__ == '__main__':
     state_size = 26
     action_size = 5 #must be odd number
 
-    det = {0: -1.5, 1: -0.75, 2: 0, 3: 0.75, 4: 1.5}
+    det = {0: -1.5, 1: -0.75, 2: 0, 3: 0.75, 4: 1.5} # turning actions into angular vel
 
 
     agent = ReinforceAgent(state_size, action_size, writer)
     scores, episodes = [], []
     agent.global_step = 0
     start_time = time.time()
+    
 
     for e in tqdm(range(1, EPISODES)):
         done = False
-        state = env.reset()
+        goal = agent.test_goals(e, 3) # e is the local episode and the number is the stage. Use 3 for L stage and other numbers for others envs (1, 2...)
+        state = env.reset(new_random_goals=False, goal=goal)
         score = 0
 
         for t in range(agent.episode_step):
 
             action = agent.choose_action(state)
-            next_state, reward, done, info = env.step(np.array([det[action], 0.15], dtype=np.float))
+            next_state, reward, done, info = env.step(np.array([det[action], 0.15], dtype=np.float64))
             #learn from sars'tupe
             score += reward
             state = next_state
