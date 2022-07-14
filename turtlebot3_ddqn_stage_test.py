@@ -25,7 +25,7 @@ from gym import spaces
 from gym.utils import seeding
 from std_msgs.msg import Float32MultiArray
 
-EPISODES = 10
+EPISODES = 21
 
 import torch as T
 
@@ -44,10 +44,10 @@ time.sleep(4)
 
 observation = env.reset(new_random_goals=True, goal=None)
 
-if not os.path.exists('logs70'):
-	os.makedirs('logs70')
+if not os.path.exists('logsDDQN1test'):
+	os.makedirs('logsDDQN1test')
 	
-writer = SummaryWriter('logs70')
+writer = SummaryWriter('logsDDQN1test')
 
 
 class LinearDeepQNetwork(nn.Module):
@@ -119,10 +119,10 @@ class ReinforceAgent():
 
         #Tien: TODO: Load trained model'
         if self.load_model:
-            self.epsilon = 0.3
+            self.epsilon = 0.1
         #    self.global_step = self.load_episode# dummy for bypass the batch sizes
             print ('Loading model ')
-            self.model.load_state_dict(T.load(self.dirPath + '/dqn_stL_model.pth'))
+            self.model.load_state_dict(T.load(self.dirPath + '/ddqn_st1_model.pth'))
             self.model.eval()
             print ("Load model state dict")
             # TODO: Load previos epsilon self.epsilon = 0.99 
@@ -130,23 +130,23 @@ class ReinforceAgent():
     
     def test_goals(self, t, env):
     	if env == 3:
-    		if t < 2:
-        		return ([0.5, -3.5],[0.5, -3.5])
-    		elif 2 <= t < 4:
-        		return ([3.5, -0.5],[3.5, -0.5])
-    		elif 4 <= t < 6:
-        		return ([3.5, -3.5],[3.5, -3.5])
-    		elif t >= 6:
-        		return ([2.7, -2.0],[2.7, -2.0])
+    		if t < 5:
+        		return ([0.5, -3.5],[0.5, -3.5]), 1
+    		elif 5 <= t < 10:
+        		return ([3.5, -3.5],[3.5, -3.5]), 2
+    		elif 10 <= t < 15:
+        		return ([3.5, -0.5],[3.5, -0.5]), 3
+    		elif t >= 15:
+        		return ([2.7, -2.0],[2.7, -2.0]), 4
     	else:
     		if t < 5:
-        		return ([-1.5, -1.5],[-1.5, -1.5])
+        		return ([-1.5, 1.5],[-1.5, 1.5]), 1
     		elif 5 <= t < 10:
-        		return ([1.5, -1.5],[1.5, -1.5])
+        		return ([-1.5, -1.5],[-1.5, -1.5]), 2
     		elif 10 <= t < 20:
-        		return ([-1.5, 1.5],[-1.5, 1.5])
+        		return ([1.5, -1.5],[1.5, -1.5]), 3
     		elif t >= 20:
-        		return ([1.5, 1.5],[1.5, 1.5])
+        		return ([1.5, 1.5],[1.5, 1.5]), 4
 
         	
     def choose_action (self, observation):
@@ -182,9 +182,10 @@ if __name__ == '__main__':
 
     for e in tqdm(range(1, EPISODES)):
         done = False
-        goal = agent.test_goals(e, 3) # e is the local episode and the number is the stage. Use 3 for L stage and other numbers for others envs (1, 2...)
+        goal, n_goal = agent.test_goals(e, 1) # e is the local episode and the number is the stage. Use 3 for L stage and other numbers for others envs (1, 2...)
         state = env.reset(new_random_goals=False, goal=goal)
         score = 0
+        e_time = time.time()
 
         for t in range(agent.episode_step):
 
@@ -207,6 +208,33 @@ if __name__ == '__main__':
                 episodes.append(e)
                 m, s = divmod(int(time.time() - start_time), 60)
                 h, m = divmod(m, 60)
+                gotit = 'No'
+                e_duration = time.time() - e_time
+                record = [e, score, e_duration, goal]
+                
+                if score > 199:
+                	gotit = 'Yes'
+                else: 
+                	gotit = 'No'
+                
+                print('Ep:', e,  ';  Goal Achieved?',gotit, ';  Time:', e_duration,'seg')
+                
+                
+                with open("metrics_DDQN_st1.txt", 'a') as arq:
+                     arq.write('\n ')
+                     arq.write(str(e))
+                     arq.write(',')
+                     arq.write(str(score))
+                     arq.write(',')
+                     arq.write(str(e_duration))
+                     arq.write(',')
+                     arq.write(str(n_goal))
+                arq.close()
+                
+         #       with open('Example.csv', 'w', newline = '') as csvfile:
+         #       	csvfile = csv.writer(csvfile, delimiter = ',')
+         #       	csvfile.writerow(record)
+              
                 
                 writer.add_scalar("Reward/train", reward, e)
 
