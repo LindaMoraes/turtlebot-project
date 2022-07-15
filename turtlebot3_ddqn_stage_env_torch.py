@@ -43,7 +43,7 @@ rospy.init_node('TurtleBot3_Circuit_Simple-v0'.replace('-', '_') + "_w{}".format
 env = gym.make('TurtleBot3_Circuit_Simple-v0', observation_mode=0, continuous=True, env_stage=1)
 time.sleep(4)
 
-observation = env.reset()
+observation = env.reset(new_random_goals=True, goal=None)
 
 if not os.path.exists('logs'):
 	os.makedirs('logs')
@@ -320,7 +320,7 @@ if __name__ == '__main__':
 
     for e in tqdm(range(agent.load_episode + 1, EPISODES)):
         done = False
-        state = env.reset()
+        state = env.reset(new_random_goals=True, goal=None)
         score = 0
 
         for t in range(agent.episode_step):

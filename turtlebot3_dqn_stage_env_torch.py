@@ -27,7 +27,7 @@ from gym import spaces
 from gym.utils import seeding
 from std_msgs.msg import Float32MultiArray
 
-EPISODES = 500
+EPISODES = 5001
 
 import torch as T
 
@@ -41,10 +41,10 @@ from torch.utils.tensorboard import SummaryWriter
 time.sleep(4)
 os.environ['ROS_MASTER_URI'] = "http://localhost:{}/".format(11310 + 1)
 rospy.init_node('TurtleBot3_Circuit_Simple-v0'.replace('-', '_') + "_w{}".format(1))
-env = gym.make('TurtleBot3_Circuit_Simple-v0', observation_mode=0, continuous=True)
+env = gym.make('TurtleBot3_Circuit_Simple-v0', observation_mode=0, continuous=True, env_stage=1)
 time.sleep(4)
 
-observation = env.reset()
+observation = env.reset(new_random_goals=True, goal=None)
 
 if not os.path.exists('logs'):
 	os.makedirs('logs')
@@ -289,7 +289,7 @@ if __name__ == '__main__':
 
     for e in tqdm(range(agent.load_episode + 1, EPISODES)):
         done = False
-        state = env.reset()
+        state = env.reset(new_random_goals=True, goal=None)
         score = 0
 
         for t in range(agent.episode_step):
@@ -320,8 +320,8 @@ if __name__ == '__main__':
                     # write a row to the csv file
          #           writer.writerow(csvRow)
       #          f.close()
-                if e % 10 == 0: #save model after each 10 ep.
-                    T.save(agent.model, 'model.pt')
+                if e % 100 == 0: #save model after each 100 ep.
+                    T.save(agent.model.state_dict(), 'dqn_st1_model.pth')
                     print ('Saved model at episode', e)                    
                 agent.updateTargetModel()
                 scores.append(score)
