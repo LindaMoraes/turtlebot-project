@@ -25,7 +25,7 @@ from gym import spaces
 from gym.utils import seeding
 from std_msgs.msg import Float32MultiArray
 
-EPISODES = 21
+EPISODES = 101
 
 import torch as T
 
@@ -44,10 +44,10 @@ time.sleep(4)
 
 observation = env.reset(new_random_goals=True, goal=None)
 
-if not os.path.exists('logsDDQN1test'):
-	os.makedirs('logsDDQN1test')
+if not os.path.exists('logs'):
+	os.makedirs('logs')
 	
-writer = SummaryWriter('logsDDQN1test')
+writer = SummaryWriter('logs')
 
 
 class LinearDeepQNetwork(nn.Module):
@@ -114,6 +114,8 @@ class ReinforceAgent():
         self.global_step = 0
                  
         self.model = LinearDeepQNetwork(self.learning_rate,  self.action_size, self.observation_space) #action-value function Q
+        
+        self.turtle_position = Pose()
           
         print(self.model)
 
@@ -122,7 +124,7 @@ class ReinforceAgent():
             self.epsilon = 0.1
         #    self.global_step = self.load_episode# dummy for bypass the batch sizes
             print ('Loading model ')
-            self.model.load_state_dict(T.load(self.dirPath + '/ddqn_st1_model.pth'))
+            self.model.load_state_dict(T.load(self.dirPath + '/dqn_st1_model.pth'))
             self.model.eval()
             print ("Load model state dict")
             # TODO: Load previos epsilon self.epsilon = 0.99 
@@ -130,23 +132,37 @@ class ReinforceAgent():
     
     def test_goals(self, t, env):
     	if env == 3:
-    		if t < 5:
+    		if t <= 25:
         		return ([0.5, -3.5],[0.5, -3.5]), 1
-    		elif 5 <= t < 10:
+    		elif 25 < t <= 50:
         		return ([3.5, -3.5],[3.5, -3.5]), 2
-    		elif 10 <= t < 15:
+    		elif 50 < t <= 75:
         		return ([3.5, -0.5],[3.5, -0.5]), 3
-    		elif t >= 15:
+    		elif t > 75:
         		return ([2.7, -2.0],[2.7, -2.0]), 4
     	else:
-    		if t < 5:
+    		if t <= 25:
         		return ([-1.5, 1.5],[-1.5, 1.5]), 1
-    		elif 5 <= t < 10:
+    		elif 25 < t <= 50:
         		return ([-1.5, -1.5],[-1.5, -1.5]), 2
-    		elif 10 <= t < 20:
+    		elif 50 < t <= 75:
         		return ([1.5, -1.5],[1.5, -1.5]), 3
-    		elif t >= 20:
+    		elif t > 75:
         		return ([1.5, 1.5],[1.5, 1.5]), 4
+    
+    def savePath(self, msg):
+    	posey = round(msg.pose.pose.position.y,8)
+    	posex = round(msg.pose.pose.position.x,8) 
+    	
+    #	with open("nav/ERROtest_nav_DDQN_st1.txt", 'a') as arq:
+    	with open("nav/test_nav_DQN_st1.txt", 'a') as arq:
+    		arq.write(str(posex))
+    		arq.write(' ')
+    		arq.write(str(posey))
+    		arq.write('\n')
+    	arq.close()
+    
+    #	print
 
         	
     def choose_action (self, observation):
@@ -178,6 +194,8 @@ if __name__ == '__main__':
     scores, episodes = [], []
     agent.global_step = 0
     start_time = time.time()
+   # agent.msg.pose.pose.x = 0
+    
     
 
     for e in tqdm(range(1, EPISODES)):
@@ -186,6 +204,8 @@ if __name__ == '__main__':
         state = env.reset(new_random_goals=False, goal=goal)
         score = 0
         e_time = time.time()
+        
+        rospy.Subscriber('/odom', Odometry, agent.savePath)
 
         for t in range(agent.episode_step):
 
@@ -197,6 +217,8 @@ if __name__ == '__main__':
             
             get_action.data = [action, score, reward]
             pub_get_action.publish(get_action)
+            
+         #   print(agent.turtle_position.position.y)
 
             if t >= 500: #take so long to reach goal: timeout 500 default
                 print("Time out!!")
@@ -220,15 +242,16 @@ if __name__ == '__main__':
                 print('Ep:', e,  ';  Goal Achieved?',gotit, ';  Time:', e_duration,'seg')
                 
                 
-                with open("metrics_DDQN_st1.txt", 'a') as arq:
-                     arq.write('\n ')
+            #    with open("metrics/ERROtest_metrics_DDQN_st1.txt", 'a') as arq:
+                with open("metrics/test_metrics_DQN_st1.txt", 'a') as arq:
                      arq.write(str(e))
-                     arq.write(',')
+                     arq.write(' ')
                      arq.write(str(score))
-                     arq.write(',')
+                     arq.write(' ')
                      arq.write(str(e_duration))
-                     arq.write(',')
+                     arq.write(' ')
                      arq.write(str(n_goal))
+                     arq.write('\n')
                 arq.close()
                 
          #       with open('Example.csv', 'w', newline = '') as csvfile:
