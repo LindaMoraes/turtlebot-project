@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-# Authors: Linda Moraes, adapted from Tien Tran, who adapted from ROBOTIS 
+# Authors: Linda Moraes, adapted from Tien Tran and ROBOTIS 
 # Tien Tran mail: quang.tran@fh-dortmund.de
+# Linda Dotto mail: lindadotto@yahoo.com.br
 
 import rospy
 import os
